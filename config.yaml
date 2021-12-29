@@ -1,0 +1,4 @@
+# configurations
+source_bucket_name: sourcebucket
+source_object_name: ps-obj94
+part_no: 5
