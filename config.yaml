@@ -1,4 +1,4 @@
 # configurations
 source_bucket_name: sourcebucket
-source_object_name: ps-obj94
+source_object_name: demo-object
 part_no: 5

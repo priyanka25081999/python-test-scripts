@@ -1,60 +1,89 @@
-# multipart api
-import asyncio
-import subprocess
-import fileinput
+# This is multipart upload test script
+# Multipart API - Create, Upload-part, Complete
+ 
+import json
 import os
-from subprocess import PIPE
+import subprocess
 from ast import literal_eval
+from config import Config
+from subprocess import PIPE
 
 def main():
-    source_bucket_name = "sourcebucket"
-    source_object_name = "object14"
-    print(source_bucket_name + " " + source_object_name)
-    command = "aws s3api create-multipart-upload --bucket " + source_bucket_name + " --key " + source_object_name
-    out = subprocess.check_output(command, shell=True)
-    res = out.decode('utf-8')
-    #print(type(res))
-    final_res = literal_eval(res)
-    print("Create multipart upload : {}".format(final_res))
-    upload_id = final_res.get("UploadId")
-    print(upload_id)
+    
+    # Make an object of Config class
+    # Please note : source bucket should be exist
+    config = Config()
+    source_bucket_name = config.source_bucket_name 
+    source_object_name = config.source_object_name
+    print("\nBucket Name : " + source_bucket_name + "\n" + "Object Name : " + source_object_name)
+    print("----------------------------------------")
 
+    # Create multipart upload
+    command1 = "aws s3api create-multipart-upload --bucket " + source_bucket_name + " --key " + source_object_name
+    output1 = subprocess.check_output(command1, shell=True)
+    result1 = output1.decode('utf-8')
+    print("Create multipart upload : {}".format(result1))
+
+    # Convert result into dictionary to get upload-id
+    final_res = literal_eval(result1)
+    upload_id = final_res.get("UploadId")
+    print("Upload ID : ",upload_id)
+    print("----------------------------------------\n")
+
+    # Split a file 
+    command2 = "split  -d -n " + str(config.part_no) +" ~/test50M"
+    output2 = subprocess.check_output(command2, shell=True)
+    result2 = output2.decode('utf-8')
+
+    # create a list
+    process = subprocess.run("ls -la x*  | awk '{print $NF}'", shell=True, check=True, stdout=subprocess.PIPE, universal_newlines=True)
+    output = process.stdout
+    object_part = (output.split("\n")[0:-1])
 
     # Upload part
-    part_no = 5
     etag_dict = {}
-    files = subprocess.check_output("cat etag.json", shell=True)
+    
+    for part_no in range(len(object_part)):
+        command3 = "aws s3api upload-part --bucket " + source_bucket_name + " --key " + source_object_name + " --upload-id '" + upload_id + "' --part-number "+str(part_no+1) + " --body " + "x0"+str(part_no)
+        output3 = subprocess.check_output(command3, shell=True)
+        result3 = json.loads(output3.decode('utf-8'))
+        print("Upload Part {}  : {}".format(part_no+1, result3))
+        etag = result3.get("ETag")
+        etag_dict[part_no+1] = etag
+    print("\nUpload part ETag Dict : {}".format(etag_dict))
+    print("----------------------------------------")
 
-    #file = os.open('demo_object.txt',os.O_RDONLY)
-    #tagset = os.read(file, os.path.getsize(file))
-    #files = files.decode('utf-8')
-    #print(files)
-    for i in range(1, part_no+1):
-     with open("demo_object.txt","r") as f1:
-      ff2 = f1.read()
-      print("****file : ",ff2)
-      command2 = "aws s3api upload-part --bucket " + source_bucket_name + " --key " + source_object_name + " --upload-id '" + upload_id + "' --part-number "+str(i) + " --body file://demo_object.txt"
-      print("Command : {}".format(command2))
-      status = os.system(command2)
-      print("**status : {}",status)
-      out2 = subprocess.check_output(command2, shell=True)
-      res2 = out2.decode('utf-8')
-      etag = res2.get("ETag")
-      etag_dict[i] = etag
-    print("Upload part : {}".format(etag_dict))
+    # Complete multipart upload
+    # Create and open a new file
+    file_obj = open('etag_file.json','w+')
+    file_obj.write('{"Parts":[')
 
-   
-    # complete multipart
-    etag_str = "<CompleteMultipartUpload>"
-    for part, etag in etag_dict.items():
-        etag_str += "<Part><ETag>" + \
-                str(etag) + "</ETag><PartNumber>" + str(part) + "</PartNumber></Part>"
-    etag_str += "</CompleteMultipartUpload>"
-    command3 = "aws s3api complete-multipart-upload --bucket " + source_bucket_name + " --key "+source_object_name+ " --upload-id '" + upload_id + "' --multipart-upload " + etag_str
-    out3 = subprocess.check_output(command3, shell=True)
-    #res3 = out3.decode('utf-8')
-    #print("Complete multipart upload : {}".format(res3))
+    length=len(etag_dict)
+    i=1
+
+    for key, etag in etag_dict.items():
+      if i == length:
+        file_obj.write('{"ETag" '+" : " +etag)
+        file_obj.write(', "PartNumber" '+" : " + str(key) + "}")
+      else:
+        file_obj.write('{"ETag" '+" : " +etag)
+        file_obj.write(', "PartNumber" '+" : " + str(key) + "},")
+      i+=1
+    
+    file_obj.write(']}')
+    file_obj.close()
+
+    command4 = "aws s3api complete-multipart-upload --bucket " + source_bucket_name + " --key "+source_object_name+ " --upload-id '" + upload_id + "' --multipart-upload "+ "file://etag_file.json"
+
+    output4 = subprocess.check_output(command4, shell=True)
+    result4 = output4.decode('utf-8')
+    print("\nComplete multipart upload : {}".format(result4))
+    result4 = json.loads(result4)
+    final_etag = result4.get("ETag")
+    print("\nFinal ETag : {}".format(final_etag))
+
+    # Remove the file
+    os.system('rm -rf etag_file.json')
 
 main()
-#loop = asyncio.get_event_loop()
-#loop.run_until_complete(main())
+
