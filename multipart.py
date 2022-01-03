@@ -15,11 +15,19 @@ def main():
     config = Config()
     source_bucket_name = config.source_bucket_name 
     source_object_name = config.source_object_name
+    target_bucket_name = "targetbucket"
     print("\nBucket Name : " + source_bucket_name + "\n" + "Object Name : " + source_object_name)
     print("----------------------------------------")
 
     # Create multipart upload
-    command1 = "aws s3api create-multipart-upload --bucket " + source_bucket_name + " --key " + source_object_name
+    # without metadata parameter
+    #command1 = "aws s3api create-multipart-upload --bucket " + source_bucket_name + " --key " + source_object_name
+
+    # with metadata parameter
+    # replace __TARGET_SITE__ with the target_site 
+    # For example == "target-site": "awss3" 
+    command1 = "aws s3api create-multipart-upload --bucket " + source_bucket_name + " --key " + source_object_name + " --metadata '{\"target-site\": \"__TARGET_SITE__\", \"replication\" : \"true\", \"target-bucket\": \"" +target_bucket_name + "\"}'"
+    print("command 1  = ", command1)
     output1 = subprocess.check_output(command1, shell=True)
     result1 = output1.decode('utf-8')
     print("Create multipart upload : {}".format(result1))
