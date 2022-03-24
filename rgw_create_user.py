@@ -13,3 +13,9 @@ rgw.create_user(
 
 print("User created successfully")
 
+# get users
+print("Users :\n", rgw.get_users())
+
+# remove the user
+rgw.remove_user(uid=user.get('user_id'))
+print("\n", user_id, " : User removed successfully")
