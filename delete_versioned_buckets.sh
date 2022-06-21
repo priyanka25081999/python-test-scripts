@@ -47,3 +47,4 @@ fi
 # aws s3 ls | cut -d" " -f 3 | xargs -I{} sh delete_versioned_buckets.sh {}
 # aws s3 ls | cut -d" " -f 3 | xargs -I{} aws s3 rb s3://{} --force
 
+# Also, we can change bucket state to suspended and try deleting the buckets
